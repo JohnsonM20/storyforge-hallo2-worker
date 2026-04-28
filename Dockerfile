@@ -44,7 +44,11 @@ WORKDIR /opt/hallo2
 # Hallo2 requirements. We install on top of the base image's torch so
 # we don't downgrade. Pin to known-working versions where possible.
 COPY requirements.txt /tmp/worker_requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt && \
+# Hallo2's gradio==4.36.1 tries to upgrade blinker, which is a
+# distutils-installed package on the Ubuntu base — pip can't uninstall
+# it. Force-overwrite via --ignore-installed first.
+RUN pip install --no-cache-dir --ignore-installed blinker && \
+    pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir -r /tmp/worker_requirements.txt
 
 # Worker handler.
