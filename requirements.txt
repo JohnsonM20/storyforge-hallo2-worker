@@ -1,0 +1,8 @@
+# RunPod-side worker requirements layered on top of Hallo2's own
+# requirements. The base image already supplies torch/torchvision/
+# torchaudio + CUDA, so we only add the worker glue.
+runpod>=1.6.0
+huggingface_hub>=0.23.0
+requests>=2.32.0
+boto3>=1.34.0          # for downloading source assets from presigned URLs
+soundfile>=0.12.1
