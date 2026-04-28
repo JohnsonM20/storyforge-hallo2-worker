@@ -11,7 +11,7 @@
 # attaches a persistent network volume per endpoint when configured;
 # without it, each cold start re-downloads (~3-5 min penalty).
 
-FROM runpod/pytorch:2.2.2-py3.10-cuda12.1.0-devel-ubuntu22.04
+FROM runpod/pytorch:2.2.1-py3.10-cuda12.1.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
