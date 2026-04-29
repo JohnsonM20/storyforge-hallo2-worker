@@ -104,7 +104,9 @@ def handler(event: dict[str, Any]) -> dict[str, Any]:
     workdir = Path(tempfile.mkdtemp(prefix=f"hallo2_{job_id}_", dir=base_dir))
     image_path = workdir / "source.png"
     audio_path = workdir / "audio.wav"
-    output_path = workdir / "out.mp4"
+    save_dir = workdir / "out"
+    save_dir.mkdir(parents=True, exist_ok=True)
+    config_path = workdir / "long.yaml"
 
     try:
         # Materialize inputs
@@ -117,12 +119,24 @@ def handler(event: dict[str, Any]) -> dict[str, Any]:
         else:
             _download_url(audio_url, audio_path)
 
+        # Hallo2's inference_long.py reads save_path from the config
+        # (not CLI). Copy the default config and override save_path.
+        cfg_text = DEFAULT_CONFIG.read_text()
+        new_cfg_text = []
+        for line in cfg_text.splitlines():
+            if line.startswith("save_path:"):
+                new_cfg_text.append(f"save_path: {save_dir}/")
+            elif line.startswith("cache_path:"):
+                new_cfg_text.append(f"cache_path: {workdir}/.cache")
+            else:
+                new_cfg_text.append(line)
+        config_path.write_text("\n".join(new_cfg_text))
+
         cmd = [
             "python", str(INFERENCE_SCRIPT),
-            "--config", str(DEFAULT_CONFIG),
+            "--config", str(config_path),
             "--source_image", str(image_path),
             "--driving_audio", str(audio_path),
-            "--save_path", str(output_path),
             "--pose_weight", str(pose_w),
             "--face_weight", str(face_w),
             "--lip_weight", str(lip_w),
@@ -142,12 +156,20 @@ def handler(event: dict[str, Any]) -> dict[str, Any]:
                 "stderr_tail": proc.stderr[-2000:],
                 "stdout_tail": proc.stdout[-1000:],
             }
-        if not output_path.exists():
+
+        # Find the produced mp4 — Hallo2 writes it under save_dir
+        # using its own naming convention.
+        produced = sorted(save_dir.rglob("*.mp4"))
+        if not produced:
             return {
                 "error": "hallo2 produced no output file",
+                "save_dir_listing": [str(p) for p in save_dir.rglob("*")][:50],
                 "stderr_tail": proc.stderr[-2000:],
                 "stdout_tail": proc.stdout[-1000:],
             }
+        # Pick the largest (Hallo2 may emit intermediate clips alongside
+        # the final stitched video).
+        output_path = max(produced, key=lambda p: p.stat().st_size)
 
         size_mb = output_path.stat().st_size / (1 << 20)
         result: dict[str, Any] = {
